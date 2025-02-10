@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Classifier</title>
+    <title>JavaScript Image Classifier</title>
     <style>
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -62,7 +62,13 @@
             margin-top: 1rem;
         }
 
-        button:hover {
+        button:disabled {
+            background: #6c757d !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        button:hover:not(:disabled) {
             background: #0b5ed7;
             transform: translateY(-1px);
         }
@@ -106,14 +112,14 @@
         <h1>AI Image Classification System</h1>
         
         <div id="image-container">
-            <img id="random-image" alt="Analysis Sample" crossOrigin="anonymous">
+            <img id="random-image" alt="Analysis Sample" crossorigin="anonymous">
         </div>
         
         <div id="classification-result">
             <div class="status-message">Initializing classification model...</div>
         </div>
         
-        <button onclick="loadRandomImage()">Analyze New Image</button>
+        <button id="analyze-btn" disabled>Loading Model...</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
@@ -123,6 +129,7 @@
         let model;
         const imageElement = document.getElementById('random-image');
         const resultElement = document.getElementById('classification-result');
+        const analyzeBtn = document.getElementById('analyze-btn');
 
         function getRandomImage() {
             const randomParam = Date.now();
@@ -130,6 +137,9 @@
         }
 
         async function classifyImage() {
+            // Double-check model availability
+            if (!model) throw new Error('Model not loaded');
+            
             const tensor = tf.browser.fromPixels(imageElement)
                 .resizeNearestNeighbor([224, 224])
                 .toFloat()
@@ -142,15 +152,21 @@
 
         async function loadRandomImage() {
             try {
-                resultElement.innerHTML = '<div class="status-message">Loading image sample...</div>';
-                imageElement.classList.remove('loaded');
+                // Prevent multiple clicks
+                analyzeBtn.disabled = true;
                 
+                // Clear previous image
+                imageElement.classList.remove('loaded');
+                resultElement.innerHTML = '<div class="status-message">Loading image sample...</div>';
+                
+                // Load new image
                 imageElement.src = getRandomImage();
                 await new Promise((resolve, reject) => {
                     imageElement.onload = resolve;
                     imageElement.onerror = reject;
                 });
 
+                // Show image and classify
                 imageElement.classList.add('loaded');
                 resultElement.innerHTML = '<div class="status-message">Analyzing image content...</div>';
                 
@@ -161,21 +177,35 @@
                 `;
 
             } catch (error) {
-                resultElement.innerHTML = '<div class="status-message" style="color: #dc3545;">Analysis failed. Please try again.</div>';
+                resultElement.innerHTML = `<div class="status-message" style="color: #dc3545;">Error: ${error.message}</div>`;
                 console.error(error);
+            } finally {
+                analyzeBtn.disabled = false;
             }
         }
 
         async function initialize() {
             try {
+                // Load model first
                 model = await mobilenet.load({ version: 2, alpha: 1.0 });
+                
+                // Then setup UI
                 resultElement.innerHTML = '<div class="status-message">Model ready for analysis</div>';
+                analyzeBtn.textContent = "Analyze New Image";
+                analyzeBtn.disabled = false;
+                
+                // Attach click handler AFTER model is ready
+                analyzeBtn.onclick = loadRandomImage;
+                
             } catch (error) {
                 console.error("Model initialization error:", error);
                 resultElement.innerHTML = '<div class="status-message" style="color: #dc3545;">Model initialization failed</div>';
+                analyzeBtn.textContent = "Analysis Disabled";
+                analyzeBtn.disabled = true;
             }
         }
 
+        // Start initialization when page loads
         window.onload = initialize;
     </script>
 </body>
