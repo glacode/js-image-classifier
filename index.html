@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Classifier</title>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 2rem;
+            background: #f8f9fa;
+            min-height: 100vh;
+            color: #212529;
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
+        }
+
+        #image-container {
+            margin: 2rem auto;
+            text-align: center;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            display: none;
+            margin: 1rem auto;
+        }
+
+        img.loaded {
+            display: block;
+        }
+
+        button {
+            background: #0d6efd;
+            border: none;
+            padding: 12px 24px;
+            color: white;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            background: #0b5ed7;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #classification-result {
+            margin: 1.5rem auto;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 1rem;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            min-height: 60px;
+            max-width: 600px;
+        }
+
+        .status-message {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin: 1rem 0;
+        }
+
+        .prediction-result {
+            font-size: 1.1rem;
+            margin: 0.5rem 0;
+        }
+
+        .confidence {
+            color: #0d6efd;
+            font-weight: 500;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Image Classification System</h1>
+        
+        <div id="image-container">
+            <img id="random-image" alt="Analysis Sample" crossOrigin="anonymous">
+        </div>
+        
+        <div id="classification-result">
+            <div class="status-message">Initializing classification model...</div>
+        </div>
+        
+        <button onclick="loadRandomImage()">Analyze New Image</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+    <script>
+        let model;
+        const imageElement = document.getElementById('random-image');
+        const resultElement = document.getElementById('classification-result');
+
+        function getRandomImage() {
+            const randomParam = Date.now();
+            return `https://picsum.photos/224/224?random=${randomParam}`;
+        }
+
+        async function classifyImage() {
+            const tensor = tf.browser.fromPixels(imageElement)
+                .resizeNearestNeighbor([224, 224])
+                .toFloat()
+                .expandDims();
+
+            const predictions = await model.classify(tensor);
+            tensor.dispose();
+            return predictions[0];
+        }
+
+        async function loadRandomImage() {
+            try {
+                resultElement.innerHTML = '<div class="status-message">Loading image sample...</div>';
+                imageElement.classList.remove('loaded');
+                
+                imageElement.src = getRandomImage();
+                await new Promise((resolve, reject) => {
+                    imageElement.onload = resolve;
+                    imageElement.onerror = reject;
+                });
+
+                imageElement.classList.add('loaded');
+                resultElement.innerHTML = '<div class="status-message">Analyzing image content...</div>';
+                
+                const prediction = await classifyImage();
+                resultElement.innerHTML = `
+                    <div class="prediction-result">Primary classification: ${prediction.className}</div>
+                    <div class="confidence">Confidence level: ${(prediction.probability * 100).toFixed(1)}%</div>
+                `;
+
+            } catch (error) {
+                resultElement.innerHTML = '<div class="status-message" style="color: #dc3545;">Analysis failed. Please try again.</div>';
+                console.error(error);
+            }
+        }
+
+        async function initialize() {
+            try {
+                model = await mobilenet.load({ version: 2, alpha: 1.0 });
+                resultElement.innerHTML = '<div class="status-message">Model ready for analysis</div>';
+            } catch (error) {
+                console.error("Model initialization error:", error);
+                resultElement.innerHTML = '<div class="status-message" style="color: #dc3545;">Model initialization failed</div>';
+            }
+        }
+
+        window.onload = initialize;
+    </script>
+</body>
+</html>
